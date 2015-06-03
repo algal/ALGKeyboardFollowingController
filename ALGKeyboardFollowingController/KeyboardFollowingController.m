@@ -1,37 +1,41 @@
 //
-//  ALGKeyboardFollowingController.m
+//  KeyboardFollowingController.m
 //  ZoneWatcher
 //
 //  Created by Alexis Gallagher on 2014-04-14.
 //  Copyright (c) 2014 Bloom FIlter. All rights reserved.
 //
 
-#import "ALGKeyboardFollowingController.h"
+#import "KeyboardFollowingController.h"
 
-@interface ALGKeyboardFollowingController ()
+@import UIKit;
+
+@interface KeyboardFollowingController ()
 @property (weak, nonatomic) UIView * followingView;
 @property (weak, nonatomic) NSLayoutConstraint * constraint;
 @end
 
-@implementation ALGKeyboardFollowingController
+@implementation KeyboardFollowingController
 
-- (instancetype)initWithView:(UIView *)followingView
-                 bottomSpacerLayoutConstraint:(NSLayoutConstraint *)bottomSpacerConstraint
+- (nonnull instancetype)        initWithView:(nonnull UIView *)followingView
+                bottomSpacerLayoutConstraint:(nonnull NSLayoutConstraint *)bottomSpacerConstraint;
 {
-    self = [super init];
-    if (self) {
-      // assert: followingView has a window
-      
-      _followingView = followingView;
-      _constraint = bottomSpacerConstraint;
-      
-      // register for notifications about the keyboard
-      [[NSNotificationCenter defaultCenter] addObserver:self
-                                               selector:@selector(keyboardWillChangeFrame:)
-                                                   name:UIKeyboardWillChangeFrameNotification
-                                                 object:followingView.window];
-    }
-    return self;
+  self = [super init];
+  if (self) {
+    // assert: followingView has a window
+    NSAssert(followingView.window != nil,@"followingView must belong to a UIWindow");
+    NSAssert(bottomSpacerConstraint !=nil ,@"bottomSpaceConstraint must not be nil");
+    
+    _followingView = followingView;
+    _constraint = bottomSpacerConstraint;
+    
+    // register for notifications about the keyboard
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillChangeFrame:)
+                                                 name:UIKeyboardWillChangeFrameNotification
+                                               object:followingView.window];
+  }
+  return self;
 }
 
 
@@ -78,35 +82,56 @@
 
 - (BOOL) isOnscreen
 {
-  // ensure it has a window, so is in a view hierarchy
-  if (self.followingView.window == nil) {
+  if (!self.followingView) {
     return NO;
   }
-
+  
+  // ensure it has a window, so is in a view hierarchy
+  if (!self.followingView.window) {
+    return NO;
+  }
+  
   // ensure it's within the window's bounds (i.e., onscreen)
   if (!CGRectIntersectsRect([self.followingView.window convertRect:self.followingView.frame
                                                           fromView:self.followingView.superview],
-                            self.followingView.window.bounds)) {
+                            self.followingView.window.bounds))
+  {
+    return NO;
+  }
+
+  // if neither the following view, nor any of its descendants is the first responder,
+  // then we assume it is not onscreen
+  if (!([self.followingView isFirstResponder] ||
+        [KeyboardFollowingController ALGKeyboardFollowingController_findFirstResponderBeneathView:self.followingView]
+        )) {
     return NO;
   }
 
   return YES;
-//  // see if the view is the deepest subtree at its center
-//  CGPoint center = self.followingView.layer.position;
-//  CALayer * hitLayer = [self.followingView.layer hitTest:center];
-//  // Q: is hitLayer a descendent of followingView.layer?
-  
-  
-//  // ensure it is not hidden
-//  if (self.followingView.hidden == YES) {
-//    return NO;
-//  }
-  
-  
-  
-  // ensure it's not occluded
-  // FIXME: implement
-  return YES;
+}
+
+
+/**
+ Does a depth-first search of the view's descendants to find the first responder
+ 
+ :param:   view view whose descendants should be searched to find the first responder
+ :return:  a descendent view which is the first responder, or nil.
+ */
++ (UIView*)ALGKeyboardFollowingController_findFirstResponderBeneathView:(UIView*)view {
+  // Search recursively for first responder
+  for ( UIView *childView in view.subviews ) {
+    if ([childView isFirstResponder])
+    {
+      return childView;
+    }
+    UIView *result = [KeyboardFollowingController ALGKeyboardFollowingController_findFirstResponderBeneathView:childView];
+    if ( result ) {
+      return result;
+    }
+  }
+  return nil;
 }
 
 @end
+
+
